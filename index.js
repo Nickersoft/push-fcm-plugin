@@ -37,6 +37,7 @@ var ERR_NO_PUSH = "Push.js v1.0 is required to run this plugin in the browser. P
 var ERR_SW_FAILED = "Could not register the ServiceWorker due to the following error: ";
 var ERR_SW_NOT_SUPPORTED = "Your current environment does not support ServiceWorkers. FCM may not work as expected.";
 var SENT_TO_SERVER_KEY = "PushFCM_sentToServer";
+var INITIALIZED_KEY = "PushFCM_initialized";
 
 function getRoot() {
     return (typeof self == 'object' && self.self === self && self) ||
@@ -100,7 +101,7 @@ function getRoot() {
         }
     };
 
-    var FCMPlugin = function(config) {
+    var FCMPlugin = function (config) {
         var self = this;
         var initialized = false;
 
@@ -114,6 +115,13 @@ function getRoot() {
          *****************/
 
         /**
+         * Returns a boolean denoting whether Firebase has already initialized
+         */
+        function isInitialized() {
+            return firebase.apps.length > 0;
+        }
+
+        /**
          * Sets a stored boolean denoting whether sendTokenToServer() has been called
          * @param sent
          */
@@ -123,16 +131,37 @@ function getRoot() {
         }
 
         /**
+         * Returns a boolean denoting whether the latest Instance ID has been sent to the server
+         * @returns {boolean}
+         */
+        function isTokenSentToServer() {
+            if (root.hasOwnProperty("localStorage")) return root.localStorage.getItem(SENT_TO_SERVER_KEY) == 1;
+            else console.error(ERR_NO_LOCAL_STORAGE);
+            return false;
+        }
+
+        /**
+         * Wrapped method that calls sendTokenToServer() and sets the boolean accordingly
+         * @param token
+         */
+        function sendTokenToServer(token) {
+            if (!isTokenSentToServer()) {
+                config.FCM.sendTokenToServer(token);
+                setTokenSentToServer(true);
+            }
+        }
+
+        /**
          * Attempts to fetch the Instance ID and will request permission if it can't obtain it
          */
         function fetchToken() {
-            self.getFCMToken()
+            getToken()
                 .then(function (token) {
                     setTokenSentToServer(false);
 
                     if (token) {
-                        sendTokenToServer(token)
-                        config.FCM.onTokenFetched(token)
+                        sendTokenToServer(token);
+                        config.FCM.onTokenFetched(token);
                     } else {
                         config.FCM.onPermissionRequired();
                         self.requestPermission();
@@ -150,8 +179,8 @@ function getRoot() {
         function requestPermission() {
             self._messaging.requestPermission()
                 .then(function () {
-                    config.FCM.onPermissionGranted()
-                    self.fetchToken()
+                    config.FCM.onPermissionGranted();
+                    self.fetchToken();
                 })
                 .catch(function (error) {
                     config.FCM.onPermissionDenied(error)
@@ -159,54 +188,35 @@ function getRoot() {
         }
 
         /**
-         * Wrapped method that calls sendTokenToServer() and sets the boolean accordingly
-         * @param token
-         */
-        function sendTokenToServer(token) {
-            if (!isTokenSentToServer()) {
-                config.FCM.sendTokenToServer(token);
-                setTokenSentToServer(true);
-            }
-        }
-
-        /****************
-         Public Functions
-         ****************/
-
-        /**
-         * Returns a boolean denoting whether the latest Instance ID has been sent to the server
-         * @returns {boolean}
-         */
-        self.isFCMTokenSentToServer = function () {
-            if (root.hasOwnProperty("localStorage")) return root.localStorage.getItem(SENT_TO_SERVER_KEY) == 1;
-            else console.error(ERR_NO_LOCAL_STORAGE);
-        };
-
-        /**
          * Deletes the current Instance ID token
          */
-        self.deleteFCMToken = function () {
-            self.getFCMToken()
-                .then(function (currentToken) {
-                    self._messaging.deleteToken(currentToken)
-                        .then(function () {
-                            setTokenSentToServer(false);
-                            config.FCM.onTokenDeleted();
-                        })
-                        .catch(function (err) {
-                            config.FCM.onTokenDeletedError();
-                        });
-                })
-                .catch(function (error) {
-                    config.FCM.onTokenFetchedError(error);
-                });
+        function deleteToken() {
+            return new Promise(function (fulfill, reject) {
+                getToken()
+                    .then(function (currentToken) {
+                        self._messaging.deleteToken(currentToken)
+                            .then(function () {
+                                setTokenSentToServer(false);
+                                config.FCM.onTokenDeleted();
+                                fulfill(currentToken);
+                            })
+                            .catch(function (error) {
+                                config.FCM.onTokenDeletedError(error);
+                                reject(error);
+                            });
+                    })
+                    .catch(function (error) {
+                        config.FCM.onTokenFetchedError(error);
+                        reject(error);
+                    });
+            });
         }
 
         /**
          * Returns the current Instance ID token if it exists
          * @returns {Promise}
          */
-        self.getFCMToken = function () {
+        function getToken() {
             return new Promise(function (fulfill, reject) {
                 self._messaging.getToken()
                     .then(function (token) {
@@ -219,77 +229,93 @@ function getRoot() {
         }
 
         /**
+         * Initializes Firebase using a given ServiceWorker registration
+         * @param registration
+         */
+        function initialize() {
+            var localConfig, initConfig, initialized;
+
+            localConfig = config.FCM;
+
+            initConfig = {
+                apiKey: localConfig.apiKey,
+                authDomain: localConfig.authDomain,
+                databaseURL: localConfig.databaseURL,
+                projectId: localConfig.projectId,
+                storageBucket: localConfig.storageBucket,
+                messagingSenderId: localConfig.messagingSenderId
+            };
+
+            initialized = isInitialized();
+
+            if (!initialized)
+                firebase.initializeApp(initConfig);
+            else
+                console.info("Firebase could not be initialized. It may be because Firebase an app is already initialized.");
+
+            self._messaging = firebase.messaging();
+
+            if (!initialized) {
+                if (root.navigator !== 'undefined' && 'serviceWorker' in root.navigator) {
+                    root.navigator.serviceWorker.register('./firebase-messaging-sw.js', {scope: './'})
+                        .then(function () {
+                            return navigator.serviceWorker.ready;
+                        })
+                        .then(function (registration) {
+                            if (self._messaging != null && self._messaging !== 'undefined') {
+                                var messageChannel = new MessageChannel();
+
+                                messageChannel.port1.onmessage = function () {
+                                    self._messaging.useServiceWorker(registration);
+                                    self._messaging.onTokenRefresh(fetchToken);
+                                    self._messaging.onMessage(config.FCM.onMessage);
+
+                                    fetchToken();
+
+                                    console.debug("Received heartbeat from ServiceWorker.");
+                                    console.debug("Messaging instance initialized with value:");
+                                    console.debug(self._messaging);
+                                };
+
+                                registration.active.postMessage(initConfig, [messageChannel.port2]);
+                            }
+                        }).catch(function (error) {
+                            console.error(ERR_SW_FAILED + error.message);
+                        }
+                    );
+                } else {
+                    console.error(ERR_SW_NOT_SUPPORTED);
+                    return {};
+                }
+            }
+        }
+
+        /**
          * Initialization method of the FCM plugin.
          * Should be the first thing called.
          * @constructor
          */
         self.FCM = function () {
-            if (!initialized) {
-                var failed, localConfig, initConfig;
+            var failed = false;
 
-                failed = false;
+            for (var k in config.FCM) {
+                if (config.FCM[k] == null) {
+                    console.error("Null values exists for config value: " + k + ". Please make sure all values " +
+                        "are set properly in Push.config().FCM before continuing."
+                    )
 
-                for (var k in config.FCM) {
-                    if (config.FCM[k] == null) {
-                        console.error("Null values exist in FCM configuration. Please make sure all values are set in " +
-                            "Push.config().FCM before continuing."
-                        )
-
-                        failed = true;
-                    }
+                    failed = true;
                 }
-
-                if (!failed) {
-                    localConfig = config.FCM;
-                    initConfig = {
-                        apiKey: localConfig.apiKey,
-                        authDomain: localConfig.authDomain,
-                        databaseURL: localConfig.databaseURL,
-                        projectId: localConfig.projectId,
-                        storageBucket: localConfig.storageBucket,
-                        messagingSenderId: localConfig.messagingSenderId
-                    };
-
-                    firebase.initializeApp(initConfig);
-
-                    self._messaging = firebase.messaging();
-
-                    if (self._messaging != null && self._messaging !== 'undefined') {
-                        if (root.navigator !== 'undefined' && 'serviceWorker' in root.navigator) {
-                            root.navigator.serviceWorker.register('./firebase-messaging-sw.js', {scope: './'})
-                                .then(function () {
-                                    return navigator.serviceWorker.ready;
-                                })
-                                .then(function (registration) {
-                                        var messageChannel = new MessageChannel();
-
-                                        messageChannel.port1.onmessage = function (event) {
-                                            self._messaging.useServiceWorker(registration);
-                                            self._messaging.onTokenRefresh(fetchToken);
-                                            self._messaging.onMessage(config.FCM.onMessage);
-                                            console.log("Messaged read loud and clear!");
-                                            console.log(self._messaging);
-                                        };
-
-                                        registration.active.postMessage(initConfig, [messageChannel.port2]);
-                                    }
-                                ).catch(function (error) {
-                                    console.error(ERR_SW_FAILED + error.message);
-                                }
-                            );
-                        } else {
-                            console.error(ERR_SW_NOT_SUPPORTED);
-                        }
-                    }
-
-                    initialized = true;
-                }
-            } else {
-                console.info("Firebase can only be initialized once. Refresh the page if you wish to re-initialize.");
             }
 
-            return self;
-        };
+            if (!failed) initialize();
+
+            return {
+                getToken: getToken,
+                deleteToken: deleteToken,
+                isTokenSentToServer: isTokenSentToServer
+            };
+        }
     }
 
     return {
