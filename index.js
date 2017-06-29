@@ -230,70 +230,76 @@ function getRoot() {
 
         /**
          * Initializes Firebase using a given ServiceWorker registration
-         * @param registration
+         * @param functions FCM functions to resolve the promise with
+         * @returns {Promise}
          */
-        function initialize() {
-            var localConfig, initConfig, initialized;
+        function initialize(functions) {
+            return new Promise(function(fulfill, reject) {
+                var localConfig, initConfig, initialized;
 
-            localConfig = config.FCM;
+                localConfig = config.FCM;
 
-            initConfig = {
-                apiKey: localConfig.apiKey,
-                authDomain: localConfig.authDomain,
-                databaseURL: localConfig.databaseURL,
-                projectId: localConfig.projectId,
-                storageBucket: localConfig.storageBucket,
-                messagingSenderId: localConfig.messagingSenderId
-            };
+                initConfig = {
+                    apiKey: localConfig.apiKey,
+                    authDomain: localConfig.authDomain,
+                    databaseURL: localConfig.databaseURL,
+                    projectId: localConfig.projectId,
+                    storageBucket: localConfig.storageBucket,
+                    messagingSenderId: localConfig.messagingSenderId
+                };
 
-            initialized = isInitialized();
+                initialized = isInitialized();
 
-            if (!initialized)
-                firebase.initializeApp(initConfig);
-            else
-                console.info("Firebase could not be initialized. It may be because Firebase an app is already initialized.");
+                if (!initialized)
+                    firebase.initializeApp(initConfig);
+                else
+                    console.info("Firebase could not be initialized. It may be because Firebase an app is already initialized.");
 
-            self._messaging = firebase.messaging();
+                self._messaging = firebase.messaging();
 
-            if (!initialized) {
-                if (root.navigator !== 'undefined' && 'serviceWorker' in root.navigator) {
-                    root.navigator.serviceWorker.register('./firebase-messaging-sw.js', {scope: './'})
-                        .then(function () {
-                            return navigator.serviceWorker.ready;
-                        })
-                        .then(function (registration) {
-                            if (self._messaging != null && self._messaging !== 'undefined') {
-                                var messageChannel = new MessageChannel();
+                if (!initialized) {
+                    if (root.navigator !== 'undefined' && 'serviceWorker' in root.navigator) {
+                        root.navigator.serviceWorker.register('./firebase-messaging-sw.js', {scope: './'})
+                            .then(function () {
+                                return navigator.serviceWorker.ready;
+                            })
+                            .then(function (registration) {
+                                if (self._messaging != null && self._messaging !== 'undefined') {
+                                    var messageChannel = new MessageChannel();
 
-                                messageChannel.port1.onmessage = function () {
-                                    self._messaging.useServiceWorker(registration);
-                                    self._messaging.onTokenRefresh(fetchToken);
-                                    self._messaging.onMessage(config.FCM.onMessage);
+                                    messageChannel.port1.onmessage = function () {
+                                        self._messaging.useServiceWorker(registration);
+                                        self._messaging.onTokenRefresh(fetchToken);
+                                        self._messaging.onMessage(config.FCM.onMessage);
 
-                                    fetchToken();
+                                        fetchToken();
 
-                                    console.debug("Received heartbeat from ServiceWorker.");
-                                    console.debug("Messaging instance initialized with value:");
-                                    console.debug(self._messaging);
-                                };
+                                        console.debug("Received heartbeat from ServiceWorker.");
+                                        console.debug("Messaging instance initialized with value:");
+                                        console.debug(self._messaging);
 
-                                registration.active.postMessage(initConfig, [messageChannel.port2]);
+                                        fulfill(functions);
+                                    };
+
+                                    registration.active.postMessage(initConfig, [messageChannel.port2]);
+                                }
+                            }).catch(function (error) {
+                                reject(error);
                             }
-                        }).catch(function (error) {
-                            console.error(ERR_SW_FAILED + error.message);
-                        }
-                    );
-                } else {
-                    console.error(ERR_SW_NOT_SUPPORTED);
-                    return {};
+                        );
+                    } else {
+                        reject(new Error(ERR_SW_NOT_SUPPORTED));
+                        return {};
+                    }
                 }
-            }
+            });
         }
 
         /**
          * Initialization method of the FCM plugin.
          * Should be the first thing called.
          * @constructor
+         * @return {Promise}
          */
         self.FCM = function () {
             var failed = false;
@@ -308,13 +314,14 @@ function getRoot() {
                 }
             }
 
-            if (!failed) initialize();
+            if (!failed)
+                return initialize({
+                    getToken: getToken,
+                    deleteToken: deleteToken,
+                    isTokenSentToServer: isTokenSentToServer
+                });
 
-            return {
-                getToken: getToken,
-                deleteToken: deleteToken,
-                isTokenSentToServer: isTokenSentToServer
-            };
+            return null;
         }
     }
 

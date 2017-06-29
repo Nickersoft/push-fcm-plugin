@@ -72,7 +72,22 @@ To initialize FCM, just call:
 Push.FCM();
 ```
 
-And that's it! The returned object has a few functions you can call:
+And that's it! You can then use the returned promise to run additional functions:
+
+```javascript
+Push.FCM().then(function(FCM) {
+    FCM.getToken().then(function(token) {
+        console.log("Initialized with token " + token);
+    }).catch(function(tokenError) {
+       throw tokenError; 
+    });
+}).catch(function(initError) {
+   throw initError; 
+});
+```
+
+The available functions are as follows:
+
 
 | Function                | Description                                                                                                         | Returns                      |
 |-------------------------|---------------------------------------------------------------------------------------------------------------------|------------------------------|
