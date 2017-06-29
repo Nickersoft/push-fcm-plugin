@@ -129,7 +129,7 @@ Body
 }
 ```
 
-You can find your server ID by going to your project console on Firebase, clicking the gear icon on the right sidebar, selecting "Project Settings" and going to the "Cloud Messaging" tab. For more information on messaging types, read Google's [documentation on the topic](https://firebase.google.com/docs/cloud-messaging/concept-options#notifications).
+You can find your server key by going to your project console on Firebase, clicking the gear icon on the right sidebar, selecting "Project Settings" and going to the "Cloud Messaging" tab. For more information on messaging types, read Google's [documentation on the topic](https://firebase.google.com/docs/cloud-messaging/concept-options#notifications).
 
 ### Writing Your Own Plugin
 Documentation on writing plugins will be coming the official Push.js docs soon!
