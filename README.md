@@ -96,8 +96,10 @@ The available functions are as follows:
 | `isTokenSentToServer()` | denotes whether the current token has been sent to the server via `sendTokenToServer()`  (see "Additional Options") | Boolean                      |
 
 ### Additional Options
-The FCM SafeConfig has a few additional functions you can pass to it:
+The FCM SafeConfig has a few additional options you can pass to it:
 
+- `serviceWorkerLocation`: Specifies directory containing the `firebase-messaging-sw` ServiceWorker script. May need to
+change if Push has been installed via NPM or Bower. The default is `./`.
 - `onTokenFetched(token)`: Called when a new Instance ID token is retrieved
 - `onTokenFetchedError(error)`: Called if an error occurs while retrieving a new Instance ID token
 - `onPermissionRequired()` Called when permission is required to retrieve an Instance ID

@@ -80,6 +80,7 @@ function getRoot() {
             projectId: null,
             storageBucket: null,
             messagingSenderId: null,
+            serviceWorkerLocation: './',
             onTokenFetched: function (token) {
             },
             onTokenFetchedError: function (error) {
@@ -235,7 +236,7 @@ function getRoot() {
          */
         function initialize(functions) {
             return new Promise(function(fulfill, reject) {
-                var localConfig, initConfig, initialized;
+                var localConfig, initConfig, initialized, swLocation;
 
                 localConfig = config.FCM;
 
@@ -257,9 +258,15 @@ function getRoot() {
 
                 self._messaging = firebase.messaging();
 
+                swLocation = localConfig.serviceWorkerLocation;
+
+                // Add a trailing slash if one is missing
+                if (swLocation[swLocation.length - 1] !== '/')
+                    swLocation += '/';
+
                 if (!initialized) {
                     if (root.navigator !== 'undefined' && 'serviceWorker' in root.navigator) {
-                        root.navigator.serviceWorker.register('./firebase-messaging-sw.js', {scope: './'})
+                        root.navigator.serviceWorker.register(swLocation + 'firebase-messaging-sw.js', {scope: './'})
                             .then(function () {
                                 return navigator.serviceWorker.ready;
                             })
