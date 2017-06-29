@@ -164,7 +164,7 @@ function getRoot() {
                         config.FCM.onTokenFetched(token);
                     } else {
                         config.FCM.onPermissionRequired();
-                        self.requestPermission();
+                        requestPermission();
                     }
                 })
                 .catch(function (error) {
@@ -180,7 +180,7 @@ function getRoot() {
             self._messaging.requestPermission()
                 .then(function () {
                     config.FCM.onPermissionGranted();
-                    self.fetchToken();
+                    fetchToken();
                 })
                 .catch(function (error) {
                     config.FCM.onPermissionDenied(error)
