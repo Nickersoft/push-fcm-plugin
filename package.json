@@ -2,10 +2,10 @@
   "name": "push-fcm-plugin",
   "version": "0.0.1",
   "description": "Firebase Cloud Messaging plugin for Push.js",
-  "main": "index.js",
+  "main": "bin/push.fcm.min.js",
   "scripts": {
     "clean": "rm -rf bin",
-    "_build_script": "uglifyjs index.js -o bin/push.fcm.min.js -m --source-map filename=bin/push.fcm.min.js.map --comments",
+    "_build_script": "uglifyjs push.fcm.js -o bin/push.fcm.min.js -m --source-map filename=bin/push.fcm.min.js.map --comments && cp push.fcm.js bin/push.fcm.js",
     "_build_sw": "uglifyjs firebase-messaging-sw.js -o bin/firebase-messaging-sw.min.js -m --source-map filename=bin/firebase-messagong-sw.min.js.map --comments",
     "build": "mkdir -p bin && npm run _build_script && npm run _build_sw",
     "test": "echo \"Error: no test specified\" && exit 1"
