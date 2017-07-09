@@ -5,9 +5,15 @@
   "main": "index.js",
   "scripts": {
     "clean": "rm -rf bin",
-    "build": "mkdir -p bin && uglifyjs index.js -o bin/push.fcm.min.js -m --source-map filename=bin/push.fcm.min.js.map --comments",
+    "_build_script": "uglifyjs index.js -o bin/push.fcm.min.js -m --source-map filename=bin/push.fcm.min.js.map --comments",
+    "_build_sw": "uglifyjs firebase-messaging-sw.js -o bin/firebase-messaging-sw.min.js -m --source-map filename=bin/firebase-messagong-sw.min.js.map --comments",
+    "build": "mkdir -p bin && npm run _build_script && npm run _build_sw",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "files": [
+    "bin",
+    "*.md"
+  ],
   "author": "Tyler Nickerson",
   "license": "MIT",
   "dependencies": {},

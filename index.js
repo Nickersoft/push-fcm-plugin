@@ -266,7 +266,7 @@ function getRoot() {
 
                 if (!initialized) {
                     if (root.navigator !== 'undefined' && 'serviceWorker' in root.navigator) {
-                        root.navigator.serviceWorker.register(swLocation + 'firebase-messaging-sw.js', {scope: './'})
+                        root.navigator.serviceWorker.register(swLocation + 'firebase-messaging-sw.min.js', {scope: './'})
                             .then(function () {
                                 return navigator.serviceWorker.ready;
                             })
