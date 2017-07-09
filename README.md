@@ -6,7 +6,12 @@ FCM, otherwise known as Firebase Cloud Messaging, is a free feature of the Googl
 Though, keep in mind this is the first plugin for Push.js, ever. Expect a few bumps and potholes.
 
 ## Installing
-Clone the repo? This module hasn't been published to NPM or Bower yet :( It will soon though!
+Just like Push itself, this module is easily installable via NPM or Bower:
+
+```bash
+$ npm install push-fcm-plugin --save
+$ bower install push-fcm-plugin --save 
+```
 
 ## How to Use
 ### Configuring
