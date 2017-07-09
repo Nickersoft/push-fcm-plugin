@@ -1,6 +1,6 @@
 {
   "name": "push-fcm-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Firebase Cloud Messaging plugin for Push.js",
   "main": "bin/push.fcm.min.js",
   "scripts": {
