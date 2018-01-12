@@ -16,7 +16,9 @@
   ],
   "author": "Tyler Nickerson",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "firebase": "^4.8.2"
+  },
   "devDependencies": {
     "uglify-js": "^3.0.16"
   }
